@@ -1,89 +1,94 @@
-import * as React from "react"
-import { Link, graphql } from "gatsby"
+import React from "react";
+import PropTypes from "prop-types";
+import { graphql } from "gatsby";
+import Helmet from "react-helmet";
+import isAfter from "date-fns/is_after";
 
-import Bio from "../components/bio"
-import Layout from "../components/layout"
-import Seo from "../components/seo"
+import Layout from "../components/Layout";
+import "../styles/home.scss";
 
-const BlogIndex = ({ data, location }) => {
-  const siteTitle = data.site.siteMetadata?.title || `Title`
-  const posts = data.allMarkdownRemark.nodes
-
-  if (posts.length === 0) {
-    return (
-      <Layout location={location} title={siteTitle}>
-        <Seo title="All posts" />
-        <Bio />
-        <p>
-          No blog posts found. Add markdown posts to "content/blog" (or the
-          directory you specified for the "gatsby-source-filesystem" plugin in
-          gatsby-config.js).
-        </p>
-      </Layout>
-    )
-  }
-
+export const HomePageTemplate = ({ home, upcomingMeetup = null }) => {
   return (
-    <Layout location={location} title={siteTitle}>
-      <Seo title="All posts" />
-      <Bio />
-      <ol style={{ listStyle: `none` }}>
-        {posts.map(post => {
-          const title = post.frontmatter.title || post.fields.slug
+    <>
+      <section className="header">
+        <div className="header-container  container">
+          {home.headerImage && <img className="header-image" src={home.headerImage.image} alt={home.headerImage.imageAlt} />}
+          <h3 className="header-tagline">
+            <span className="header-taglinePart">{home.title}</span>
+          </h3>
+        </div>
+      </section>
+    </>
+  );
+};
 
-          return (
-            <li key={post.fields.slug}>
-              <article
-                className="post-list-item"
-                itemScope
-                itemType="http://schema.org/Article"
-              >
-                <header>
-                  <h2>
-                    <Link to={post.fields.slug} itemProp="url">
-                      <span itemProp="headline">{title}</span>
-                    </Link>
-                  </h2>
-                  <small>{post.frontmatter.date}</small>
-                </header>
-                <section>
-                  <p
-                    dangerouslySetInnerHTML={{
-                      __html: post.frontmatter.description || post.excerpt,
-                    }}
-                    itemProp="description"
-                  />
-                </section>
-              </article>
-            </li>
-          )
-        })}
-      </ol>
-    </Layout>
-  )
+class HomePage extends React.Component {
+  render() {
+    const { data } = this.props;
+    const {
+      data: { footerData, navbarData },
+    } = this.props;
+    const { frontmatter: home } = data.homePageData.edges[0].node;
+    const {
+      seo: { title: seoTitle, description: seoDescription, browserTitle },
+    } = home;
+    return (
+      <Layout footerData={footerData} navbarData={navbarData}>
+        <Helmet>
+          <meta name="title" content={seoTitle} />
+          <meta name="description" content={seoDescription} />
+          <title>{browserTitle}</title>
+        </Helmet>
+      </Layout>
+    );
+  }
 }
 
-export default BlogIndex
+HomePage.propTypes = {
+  data: PropTypes.shape({
+    allMarkdownRemark: PropTypes.shape({
+      edges: PropTypes.array,
+    }),
+  }),
+};
+
+export default HomePage;
 
 export const pageQuery = graphql`
-  query {
-    site {
-      siteMetadata {
-        title
+  query HomePageQuery {
+    allMarkdownRemark(
+      filter: { frontmatter: { presenters: { elemMatch: { text: { ne: null } } } } }
+      sort: { order: DESC, fields: frontmatter___date }
+    ) {
+      edges {
+        node {
+          frontmatter {
+            title
+            formattedDate: date(formatString: "MMMM Do YYYY @ h:mm A")
+            rawDate: date
+            presenters {
+              name
+              image
+              text
+              presentationTitle
+            }
+          }
+        }
       }
     }
-    allMarkdownRemark(sort: { fields: [frontmatter___date], order: DESC }) {
-      nodes {
-        excerpt
-        fields {
-          slug
-        }
-        frontmatter {
-          date(formatString: "MMMM DD, YYYY")
-          title
-          description
+    ...LayoutFragment
+    homePageData: allMarkdownRemark(filter: { frontmatter: { templateKey: { eq: "home-page" } } }) {
+      edges {
+        node {
+          frontmatter {
+            title
+            headerImage {
+              image
+              imageAlt
+            }
+          }
         }
       }
     }
   }
-`
+`;
